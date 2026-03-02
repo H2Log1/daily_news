@@ -131,10 +131,8 @@ def fetch_and_process():
 # ================== 组装 Markdown ==================
 
 def build_markdown(summary, grouped_data):
-    # 1. 标题增加装饰，更有报纸感
     header = f"# 🚀 {datetime.now().strftime('%m/%d')} 科技早报\n\n"
     
-    # 2. AI 总结部分：增加优雅降级
     # 如果 summary 包含错误提示，则不显示这个板块
     if "⚠️" in summary or "不可用" in summary or "失败" in summary:
         ai_section = ""
@@ -156,7 +154,6 @@ def build_markdown(summary, grouped_data):
     footer = "\n\n---\n*📫 自动发送自 GitHub Actions *"
     
     return header + ai_section + main_body + footer
-
 
 # ================== 推送 ==================
 

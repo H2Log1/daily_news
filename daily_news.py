@@ -10,12 +10,17 @@ RSS_FEEDS = {
     "IT之家": "https://www.ithome.com/rss/",
     "36氪": "https://36kr.com/feed",
     "IEEE Robotics": "https://spectrum.ieee.org/feeds/topic/robotics.rss",
-    "量子位": "https://www.qbitai.com/feed"
+    "量子位": "https://www.qbitai.com/feed",
+    "机核网": "https://rsshub.app/gcores/category/1",      
+    "游民星空": "https://rsshub.app/gamersky/news",        
+    "爱范儿": "https://rsshub.app/ifanr/category/entertainment" 
 }
 
 CATEGORIES = {
     "🤖 机器人与具身智能": ["机器人", "robot", "embodied", "vla", "智元", "驱动器"],
     "🧠 AI 与大模型": ["ai", "模型", "gpt", "llm", "深度学习", "人工智能"],
+    "🎮 游戏与二次元": ["游戏", "主机", "steam", "任天堂", "索尼", "机核", "ps5", "xbox"], 
+    "🎬 影视与娱乐": ["电影", "剧集", "netflix", "豆瓣", "奥斯卡", "漫威", "预告"],      
     "🛠️ 编程与嵌入式": ["python", "stm32", "ros", "linux", "matlab", "开源"],
 }
 
@@ -34,12 +39,13 @@ def get_ai_summary(news_text):
 
     url = "https://api.deepseek.com/chat/completions"
 
+    # 修改 get_ai_summary 内部的 payload
     payload = {
         "model": "deepseek-chat",
         "messages": [
             {
-                "role": "system",
-                "content": "你是科技分析师。请用3句简练的话总结今日技术趋势，重点关注机器人和AI。"
+                "role": "system", 
+                "content": "你是科技与娱乐深度分析师。请用4句精练的话总结今日动态：前2句侧重机器人与AI的前沿突破，后2句侧重游戏、影视行业的重大快讯。"
             },
             {"role": "user", "content": news_text}
         ]

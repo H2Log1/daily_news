@@ -136,7 +136,7 @@ def fetch_and_process():
 # ================== 组装 Markdown ==================
 
 def build_markdown(summary, grouped_data):
-    header = f"# 🚀 {datetime.now().strftime('%m/%d')} 科技早报\n\n"
+    header = f"# 🚀 {datetime.now().strftime('%m/%d')} 早报\n\n"
     
     # 如果 summary 包含错误提示，则不显示这个板块
     if "⚠️" in summary or "不可用" in summary or "失败" in summary:
@@ -172,7 +172,7 @@ def send_push(content):
         session.post(
             f"https://sctapi.ftqq.com/{sendkey}.send",
             data={
-                "title": f"今日科技简报 - {datetime.now().strftime('%m-%d')}",
+                "title": f"今日简报 {datetime.now().strftime('%m-%d')}",
                 "desp": content
             },
             timeout=20

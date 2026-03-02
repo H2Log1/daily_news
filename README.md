@@ -1,6 +1,6 @@
-# 🤖 AI-Powered Tech News Daily
+# 🤖 Tech News Daily
 
-> **基于 GitHub Actions + DeepSeek AI + Server 酱的硬核科技早报**
+> **基于 GitHub Actions + DeepSeek AI + Server 酱的科技早报**
 
 这是一个自动化资讯追踪系统。每天早上 **07:00 (UTC+8)**，系统会自动汇总全球前沿动态，并通过 AI 生成深度摘要，直接推送到你的微信。
 

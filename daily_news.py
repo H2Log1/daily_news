@@ -80,16 +80,31 @@ def fetch_and_process():
 def send_push(summary, grouped_data):
     sendkey = os.environ.get("SC_SENDKEY")
     
-    content_parts = [f"## 🤖 AI 今日精选摘要\n{summary}\n", "---"]
+    # 1. 头部：日期与 AI 深度总结
+    header = f"# 📅 {datetime.now().strftime('%m月%d日')} 科技情报\n\n"
+    ai_section = f"### 🤖 AI 趋势导航\n> {summary.replace('\n', '\n> ')}\n\n---\n"
+    
+    # 2. 正文：分类资讯
+    body_parts = []
     for category, news_list in grouped_data.items():
         if news_list:
-            content_parts.append(f"### {category}\n" + "\n".join(news_list))
+            # 分类标题加粗并带上图标
+            section_title = f"#### {category}\n"
+            # 列表条目：[来源] 标题 (链接方式)
+            formatted_list = "\n".join(news_list)
+            body_parts.append(section_title + formatted_list)
     
+    full_content = header + ai_section + "\n\n".join(body_parts)
+    
+    # 3. 发送
     data = {
-        "title": f"📅 {datetime.now().strftime('%m-%d')} 科技早报",
-        "desp": "\n\n".join(content_parts)
+        "title": f"今日科技简报 - {len(sum(grouped_data.values(), []))} 条更新",
+        "desp": full_content
     }
     requests.post(f"https://sctapi.ftqq.com/{sendkey}.send", data=data)
+
+# 在 fetch_and_process 函数中，修改 item 的格式：
+# item = f"• **[{source}]** [{entry.title}]({entry.link})"
 
 if __name__ == "__main__":
     summary, news = fetch_and_process()

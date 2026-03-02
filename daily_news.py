@@ -111,7 +111,8 @@ def fetch_and_process():
                         category_found = cat
                         break
 
-                item = f"• **[{source}]** [{title}]({entry.link})"
+                # item = f"• **[{source}]** [{title}]({entry.link})"
+                item = f"{len(grouped_news[category_found]) + 1}. **{title}** ([{source}]({entry.link}))"
 
                 if len(grouped_news[category_found]) < MAX_PER_CATEGORY:
                     grouped_news[category_found].append(item)
@@ -129,20 +130,47 @@ def fetch_and_process():
 
 # ================== 组装 Markdown ==================
 
+# def build_markdown(summary, grouped_data):
+#     quoted_summary = summary.replace("\n", "\n> ")
+
+#     header = f"# 📅 {datetime.now().strftime('%m月%d日')} 科技情报\n\n"
+#     ai_section = f"### 🤖 AI 趋势导航\n> {quoted_summary}\n\n---\n\n"
+
+#     body_parts = []
+
+#     for category, news_list in grouped_data.items():
+#         if news_list:
+#             section = f"#### {category}\n" + "\n".join(news_list)
+#             body_parts.append(section)
+
+#     return header + ai_section + "\n\n".join(body_parts)
+
 def build_markdown(summary, grouped_data):
-    quoted_summary = summary.replace("\n", "\n> ")
+    # 1. 标题增加装饰，更有报纸感
+    header = f"# 🚀 {datetime.now().strftime('%m/%d')} 科技早报\n\n"
+    
+    # 2. AI 总结部分：增加优雅降级
+    # 如果 summary 包含错误提示，则不显示这个板块
+    if "⚠️" in summary or "不可用" in summary or "失败" in summary:
+        ai_section = ""
+    else:
+        quoted_summary = summary.replace("\n", "\n> ")
+        ai_section = f"### 💡 今日深度导航\n> {quoted_summary}\n\n---\n\n"
 
-    header = f"# 📅 {datetime.now().strftime('%m月%d日')} 科技情报\n\n"
-    ai_section = f"### 🤖 AI 趋势导航\n> {quoted_summary}\n\n---\n\n"
-
+    # 3. 正文分类：增加分隔符和间距
     body_parts = []
-
     for category, news_list in grouped_data.items():
         if news_list:
-            section = f"#### {category}\n" + "\n".join(news_list)
+            # 分类名加粗并空行
+            section = f"### {category}\n" + "\n".join(news_list)
             body_parts.append(section)
 
-    return header + ai_section + "\n\n".join(body_parts)
+    # 用分隔线连接各个分类
+    main_body = "\n\n---\n\n".join(body_parts)
+    
+    footer = "\n\n---\n*📫 自动发送自 GitHub Actions *"
+    
+    return header + ai_section + main_body + footer
 
 
 # ================== 推送 ==================

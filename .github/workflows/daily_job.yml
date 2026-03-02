@@ -27,5 +27,5 @@ jobs:
       - name: 执行抓取、AI 总结和推送
         env:
           SC_SENDKEY: ${{ secrets.SC_SENDKEY }}
-          DEEPSEEK_API_KEY: ${{ secrets.DEEPSEEK_API_KEY }} # 新增这一行
+          DEEPSEEK_API_KEY: ${{ secrets.DEEPSEEK_API_KEY }}
         run: python daily_news.py

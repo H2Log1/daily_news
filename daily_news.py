@@ -65,7 +65,7 @@ def fetch_and_process():
                             break
                     
                     # 修复排版：使用 Markdown 链接格式
-                    item = f"• **[{source}]** [{entry.title}]({entry.link})"
+                    item = f"• **[{source}]** [{entry.title}]({entry.link}) \n"
                     grouped_news[found_cat].append(item)
                     all_titles.append(entry.title)
         except: continue

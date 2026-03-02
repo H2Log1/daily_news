@@ -80,31 +80,28 @@ def get_ai_summary(news_text):
 # ================== 抓取与分类 ==================
 
 def fetch_and_process():
-    # 扩展分类
     grouped_news = {cat: [] for cat in CATEGORIES.keys()}
     grouped_news["🌐 综合资讯"] = []
 
     seen_titles = set()
     all_titles_for_ai = []
 
-    # 关键：统一使用带时区信息的 UTC 时间判定
-    # 很多源显示为 0 是因为本地时间与服务器 UTC 时间 8 小时差导致判定失效
+    # 核心修复 1：获取带时区信息的 UTC 当前时间
     now_utc = datetime.now(timezone.utc)
     one_day_ago = now_utc - timedelta(days=1)
 
     for source, url in RSS_FEEDS.items():
         try:
-            # 必须添加 User-Agent 伪装，解决 IT之家 Connection Reset 和 RSSHub 拦截问题
+            # 核心修复 2：伪装成浏览器，否则会被量子位或 RSSHub 直接拦截
             feed = feedparser.parse(url, agent='Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36')
             
-            # 日志诊断：如果抓到 0 条，可能是时间格式或链接无法访问
             count = 0
             for entry in feed.entries:
-                # 兼容多种日期字段
+                # 核心修复 3：兼容多种日期字段
                 pub_struct = getattr(entry, "published_parsed", None) or getattr(entry, "updated_parsed", None)
                 if not pub_struct: continue
                 
-                # 转换时间并强制对齐到 UTC
+                # 核心修复 4：将抓取到的时间强制转换为 UTC 时区进行比对
                 pub_date = datetime(*pub_struct[:6], tzinfo=timezone.utc)
                 if pub_date < one_day_ago: continue
 
@@ -112,7 +109,7 @@ def fetch_and_process():
                 if title in seen_titles: continue
                 seen_titles.add(title)
 
-                # 分类搜索逻辑
+                # 分类判定
                 title_lower = title.lower()
                 category_found = "🌐 综合资讯"
                 for cat, keywords in CATEGORIES.items():
@@ -120,9 +117,9 @@ def fetch_and_process():
                         category_found = cat
                         break
 
-                # 排版优化：使用 Markdown 链接 [标题](链接)，解决长 URL 乱跳问题
+                # 格式化 item
                 idx = len(grouped_news[category_found]) + 1
-                item = f"{idx}. **[{source}]** [{title}]({entry.link})"
+                item = f"{idx}. **{title}** ([{source}]({entry.link}))"
                 
                 if len(grouped_news[category_found]) < MAX_PER_CATEGORY:
                     grouped_news[category_found].append(item)
@@ -135,7 +132,7 @@ def fetch_and_process():
             logging.error(f"❌ {source} 请求失败: {e}")
 
     summary_input = "\n".join(all_titles_for_ai[:25])
-    ai_summary = get_ai_summary(summary_input) if all_titles_for_ai else "今日暂无更新。"
+    ai_summary = get_ai_summary(summary_input) if all_titles_for_ai else "今日暂无重大更新。"
 
     return ai_summary, grouped_news
 

@@ -7,6 +7,7 @@ from datetime import datetime, timedelta, timezone
 RSS_FEEDS = [
     "https://www.ithome.com/rss/",       # IT之家
     "https://36kr.com/feed",             # 36氪
+    "http://www.ruanyifeng.com/blog/atom.xml"  # 阮一峰的网络日志
 ]
 
 def fetch_tech_news():

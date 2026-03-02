@@ -1,9 +1,11 @@
 import feedparser
 import requests
 import os
-from datetime import datetime, timedelta, timezone
+import logging
+from datetime import datetime, timedelta
 
-# 配置
+# ================== 基础配置 ==================
+
 RSS_FEEDS = {
     "IT之家": "https://www.ithome.com/rss/",
     "36氪": "https://36kr.com/feed",
@@ -17,85 +19,158 @@ CATEGORIES = {
     "🛠️ 编程与嵌入式": ["python", "stm32", "ros", "linux", "matlab", "开源"],
 }
 
+MAX_PER_CATEGORY = 6
+
+logging.basicConfig(level=logging.INFO)
+
+session = requests.Session()
+
+# ================== AI 总结 ==================
+
 def get_ai_summary(news_text):
     api_key = os.environ.get("DEEPSEEK_API_KEY")
-    if not api_key: return "⚠️ 未配置 API Key"
+    if not api_key:
+        return "⚠️ 未配置 DEEPSEEK_API_KEY"
 
     url = "https://api.deepseek.com/chat/completions"
-    headers = {"Authorization": f"Bearer {api_key}", "Content-Type": "application/json"}
+
     payload = {
         "model": "deepseek-chat",
         "messages": [
-            {"role": "system", "content": "你是一个科技分析师。请用3句简练的话总结今日技术趋势，重点关注机器人和AI。"},
+            {
+                "role": "system",
+                "content": "你是科技分析师。请用3句简练的话总结今日技术趋势，重点关注机器人和AI。"
+            },
             {"role": "user", "content": news_text}
         ]
     }
 
     try:
-        response = requests.post(url, json=payload, headers=headers, timeout=30)
+        response = session.post(
+            url,
+            json=payload,
+            headers={
+                "Authorization": f"Bearer {api_key}",
+                "Content-Type": "application/json"
+            },
+            timeout=30
+        )
+
+        response.raise_for_status()
+
         res_json = response.json()
-        if response.status_code == 200:
-            return res_json['choices'][0]['message']['content']
-        else:
-            error_msg = f"API 错误: {res_json.get('error', {}).get('message', '未知错误')}"
-            return f"（AI 总结暂时不可用：{error_msg}）"
-    except Exception as e:
-        return f"请求异常: {str(e)}"
-    
-    
+        content = res_json.get("choices", [{}])[0].get("message", {}).get("content")
+
+        if not content:
+            return "⚠️ AI 返回内容异常"
+
+        return content.strip()
+
+    except requests.RequestException as e:
+        logging.error(f"AI API 请求失败: {e}")
+        return "（AI 总结暂时不可用）"
+
+
+# ================== 抓取与分类 ==================
 
 def fetch_and_process():
     grouped_news = {cat: [] for cat in CATEGORIES.keys()}
     grouped_news["🌐 综合科技"] = []
+
+    seen_titles = set()
     all_titles = []
-    
-    now = datetime.now(timezone.utc)
+
+    now = datetime.now()
     one_day_ago = now - timedelta(days=1)
 
     for source, url in RSS_FEEDS.items():
         try:
             feed = feedparser.parse(url)
+
             for entry in feed.entries:
-                pub_date = datetime(*entry.published_parsed[:6], tzinfo=timezone.utc) if hasattr(entry, 'published_parsed') else None
-                if pub_date and pub_date > one_day_ago:
-                    found_cat = "🌐 综合科技"
-                    for cat, keywords in CATEGORIES.items():
-                        if any(k in entry.title.lower() for k in keywords):
-                            found_cat = cat
-                            break
-                    
-                    # 修复排版：使用 Markdown 链接格式
-                    item = f"• **[{source}]** [{entry.title}]({entry.link}) \n"
-                    grouped_news[found_cat].append(item)
-                    all_titles.append(entry.title)
-        except: continue
+                pub_struct = getattr(entry, "published_parsed", None)
+                if not pub_struct:
+                    continue
+
+                pub_date = datetime(*pub_struct[:6])
+                if pub_date < one_day_ago:
+                    continue
+
+                title = entry.title.strip()
+
+                if title in seen_titles:
+                    continue
+                seen_titles.add(title)
+
+                title_lower = title.lower()
+
+                category_found = "🌐 综合科技"
+
+                for cat, keywords in CATEGORIES.items():
+                    if any(k in title_lower for k in keywords):
+                        category_found = cat
+                        break
+
+                item = f"• **[{source}]** [{title}]({entry.link})"
+
+                if len(grouped_news[category_found]) < MAX_PER_CATEGORY:
+                    grouped_news[category_found].append(item)
+
+                all_titles.append(title)
+
+        except Exception as e:
+            logging.error(f"{source} 抓取失败: {e}")
 
     summary_input = "\n".join(all_titles[:20])
     ai_summary = get_ai_summary(summary_input) if all_titles else "今日无重大更新。"
+
     return ai_summary, grouped_news
 
-def send_push(summary, grouped_data):
-    sendkey = os.environ.get("SC_SENDKEY")
-    if not sendkey: return
 
-    # 修复 f-string 反斜杠报错：先处理好换行引用
-    quoted_summary = summary.replace('\n', '\n> ')
-    
+# ================== 组装 Markdown ==================
+
+def build_markdown(summary, grouped_data):
+    quoted_summary = summary.replace("\n", "\n> ")
+
     header = f"# 📅 {datetime.now().strftime('%m月%d日')} 科技情报\n\n"
-    ai_section = f"### 🤖 AI 趋势导航\n> {quoted_summary}\n\n---\n"
-    
+    ai_section = f"### 🤖 AI 趋势导航\n> {quoted_summary}\n\n---\n\n"
+
     body_parts = []
+
     for category, news_list in grouped_data.items():
         if news_list:
-            body_parts.append(f"#### {category}\n" + "\n".join(news_list))
-    
-    full_content = header + ai_section + "\n\n".join(body_parts)
-    
-    requests.post(f"https://sctapi.ftqq.com/{sendkey}.send", data={
-        "title": f"今日科技简报 - {datetime.now().strftime('%m-%d')}",
-        "desp": full_content
-    })
+            section = f"#### {category}\n" + "\n".join(news_list)
+            body_parts.append(section)
+
+    return header + ai_section + "\n\n".join(body_parts)
+
+
+# ================== 推送 ==================
+
+def send_push(content):
+    sendkey = os.environ.get("SC_SENDKEY")
+    if not sendkey:
+        logging.warning("未配置 SC_SENDKEY，跳过推送")
+        return
+
+    try:
+        session.post(
+            f"https://sctapi.ftqq.com/{sendkey}.send",
+            data={
+                "title": f"今日科技简报 - {datetime.now().strftime('%m-%d')}",
+                "desp": content
+            },
+            timeout=20
+        )
+        logging.info("推送成功")
+
+    except requests.RequestException as e:
+        logging.error(f"推送失败: {e}")
+
+
+# ================== 主程序 ==================
 
 if __name__ == "__main__":
     summary, news = fetch_and_process()
-    send_push(summary, news)
+    markdown_content = build_markdown(summary, news)
+    send_push(markdown_content)

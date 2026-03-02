@@ -80,17 +80,18 @@ def fetch_and_process():
 def send_push(summary, grouped_data):
     sendkey = os.environ.get("SC_SENDKEY")
     
+    formatted_summary = summary.replace('\n', '\n> ')
+    
     # 1. 头部：日期与 AI 深度总结
     header = f"# 📅 {datetime.now().strftime('%m月%d日')} 科技情报\n\n"
-    ai_section = f"### 🤖 AI 趋势导航\n> {summary.replace('\n', '\n> ')}\n\n---\n"
+    # 现在这里引用处理后的变量
+    ai_section = f"### 🤖 AI 趋势导航\n> {formatted_summary}\n\n---\n"
     
     # 2. 正文：分类资讯
     body_parts = []
     for category, news_list in grouped_data.items():
         if news_list:
-            # 分类标题加粗并带上图标
             section_title = f"#### {category}\n"
-            # 列表条目：[来源] 标题 (链接方式)
             formatted_list = "\n".join(news_list)
             body_parts.append(section_title + formatted_list)
     

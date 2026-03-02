@@ -37,7 +37,6 @@ def get_ai_summary(news_text):
         if response.status_code == 200:
             return res_json['choices'][0]['message']['content']
         else:
-            # 这里的改进让你能看到真正的错误原因
             error_msg = f"API 错误: {res_json.get('error', {}).get('message', '未知错误')}"
             return f"（AI 总结暂时不可用：{error_msg}）"
     except Exception as e:

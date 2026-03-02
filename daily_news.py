@@ -46,7 +46,7 @@ def send_to_wechat(content_list):
 
     url = f"https://sctapi.ftqq.com/{sendkey}.send"
     data = {
-        "title": f"今日科技资讯摘要 ({datetime.now().strftime('%m-%d')})",
+        "title": f"今日科技资讯摘要 ({datetime.now().strftime('%m-%d-%Y')})",
         "desp": content
     }
     

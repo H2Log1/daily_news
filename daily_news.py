@@ -130,21 +130,6 @@ def fetch_and_process():
 
 # ================== 组装 Markdown ==================
 
-# def build_markdown(summary, grouped_data):
-#     quoted_summary = summary.replace("\n", "\n> ")
-
-#     header = f"# 📅 {datetime.now().strftime('%m月%d日')} 科技情报\n\n"
-#     ai_section = f"### 🤖 AI 趋势导航\n> {quoted_summary}\n\n---\n\n"
-
-#     body_parts = []
-
-#     for category, news_list in grouped_data.items():
-#         if news_list:
-#             section = f"#### {category}\n" + "\n".join(news_list)
-#             body_parts.append(section)
-
-#     return header + ai_section + "\n\n".join(body_parts)
-
 def build_markdown(summary, grouped_data):
     # 1. 标题增加装饰，更有报纸感
     header = f"# 🚀 {datetime.now().strftime('%m/%d')} 科技早报\n\n"

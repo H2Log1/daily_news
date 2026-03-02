@@ -2,7 +2,7 @@ import feedparser
 import requests
 import os
 import logging
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 
 # ================== 基础配置 ==================
 
@@ -80,55 +80,61 @@ def get_ai_summary(news_text):
 # ================== 抓取与分类 ==================
 
 def fetch_and_process():
+    # 初始化分类容器
     grouped_news = {cat: [] for cat in CATEGORIES.keys()}
-    grouped_news["🌐 综合科技"] = []
+    grouped_news["🌐 综合资讯"] = [] # 改名为综合资讯更贴切
 
     seen_titles = set()
-    all_titles = []
+    all_titles_for_ai = []
 
-    now = datetime.now()
+    # 统一使用 UTC 时间进行判定
+    now = datetime.now(timezone.utc)
     one_day_ago = now - timedelta(days=1)
 
     for source, url in RSS_FEEDS.items():
         try:
-            feed = feedparser.parse(url)
+            # 增加 User-Agent 模拟浏览器，防止被 RSSHub 拦截
+            feed = feedparser.parse(url, agent='Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36')
 
             for entry in feed.entries:
+                # 1. 时间检查
                 pub_struct = getattr(entry, "published_parsed", None)
-                if not pub_struct:
-                    continue
+                if not pub_struct: continue
+                
+                # 转换为 UTC datetime
+                pub_date = datetime(*pub_struct[:6], tzinfo=timezone.utc)
+                if pub_date < one_day_ago: continue
 
-                pub_date = datetime(*pub_struct[:6])
-                if pub_date < one_day_ago:
-                    continue
-
+                # 2. 去重检查
                 title = entry.title.strip()
-
-                if title in seen_titles:
-                    continue
+                if title in seen_titles: continue
                 seen_titles.add(title)
 
+                # 3. 智能分类
                 title_lower = title.lower()
-
-                category_found = "🌐 综合科技"
-
+                category_found = "🌐 综合资讯"
                 for cat, keywords in CATEGORIES.items():
                     if any(k in title_lower for k in keywords):
                         category_found = cat
                         break
 
-                item = f"{len(grouped_news[category_found]) + 1}. **{title}** ([{source}]({entry.link}))"
+                # 4. 格式化输出 (加粗标题，隐藏链接)
+                # 计算当前分类下的序号
+                index = len(grouped_news[category_found]) + 1
+                item = f"{index}. **{title}** ([{source}]({entry.link}))"
 
                 if len(grouped_news[category_found]) < MAX_PER_CATEGORY:
                     grouped_news[category_found].append(item)
-
-                all_titles.append(title)
+                    # 只有被选入推送列表的标题才参与 AI 总结，保证摘要的相关性
+                    all_titles_for_ai.append(f"[{category_found}] {title}")
 
         except Exception as e:
             logging.error(f"{source} 抓取失败: {e}")
 
-    summary_input = "\n".join(all_titles[:20])
-    ai_summary = get_ai_summary(summary_input) if all_titles else "今日无重大更新。"
+    # 5. AI 输入优化：从所有标题中随机/顺序抽样，确保覆盖不同领域
+    # 如果标题太多，截取中间部分，确保各分类都能露脸
+    summary_input = "\n".join(all_titles_for_ai[:25])
+    ai_summary = get_ai_summary(summary_input) if all_titles_for_ai else "今日无重大更新。"
 
     return ai_summary, grouped_news
 

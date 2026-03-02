@@ -11,16 +11,16 @@ RSS_FEEDS = {
     "36氪": "https://36kr.com/feed",
     "IEEE Robotics": "https://spectrum.ieee.org/feeds/topic/robotics.rss",
     "量子位": "https://www.qbitai.com/feed",
-    "机核网": "https://rsshub.app/gcores/category/1",      
-    "游民星空": "https://rsshub.app/gamersky/news",        
-    "爱范儿": "https://rsshub.app/ifanr/category/entertainment" 
+    "机核网": "https://rsshub.app/gcores/category/1",
+    "游民星空": "https://rsshub.app/gamersky/news",
+    "爱范儿": "https://rsshub.app/ifanr/category/entertainment"
 }
 
 CATEGORIES = {
     "🤖 机器人与具身智能": ["机器人", "robot", "embodied", "vla", "智元", "驱动器"],
     "🧠 AI 与大模型": ["ai", "模型", "gpt", "llm", "深度学习", "人工智能"],
-    "🎮 游戏与二次元": ["游戏", "主机", "steam", "任天堂", "索尼", "机核", "ps5", "xbox"], 
-    "🎬 影视与娱乐": ["电影", "剧集", "netflix", "豆瓣", "奥斯卡", "漫威", "预告"],      
+    "🎮 游戏快讯": ["游戏", "steam", "任天堂", "nintendo", "主机", "ps5", "xbox", "机核"],
+    "🎬 影视动态": ["电影", "剧集", "netflix", "漫威", "预告", "院线", "豆瓣"],
     "🛠️ 编程与嵌入式": ["python", "stm32", "ros", "linux", "matlab", "开源"],
 }
 
@@ -80,41 +80,39 @@ def get_ai_summary(news_text):
 # ================== 抓取与分类 ==================
 
 def fetch_and_process():
+    # 扩展分类
     grouped_news = {cat: [] for cat in CATEGORIES.keys()}
     grouped_news["🌐 综合资讯"] = []
 
     seen_titles = set()
     all_titles_for_ai = []
 
-    # 统一使用带有 UTC 时区信息的当前时间
+    # 关键：统一使用带时区信息的 UTC 时间判定
+    # 很多源显示为 0 是因为本地时间与服务器 UTC 时间 8 小时差导致判定失效
     now_utc = datetime.now(timezone.utc)
     one_day_ago = now_utc - timedelta(days=1)
 
     for source, url in RSS_FEEDS.items():
         try:
-            # 必须添加 User-Agent，否则像量子位或 RSSHub 很容易屏蔽抓取
+            # 必须添加 User-Agent 伪装，解决 IT之家 Connection Reset 和 RSSHub 拦截问题
             feed = feedparser.parse(url, agent='Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36')
             
+            # 日志诊断：如果抓到 0 条，可能是时间格式或链接无法访问
             count = 0
             for entry in feed.entries:
-                # 尝试多个可能的日期字段
+                # 兼容多种日期字段
                 pub_struct = getattr(entry, "published_parsed", None) or getattr(entry, "updated_parsed", None)
-                if not pub_struct:
-                    continue
+                if not pub_struct: continue
                 
-                # 转换为 UTC 时区的 datetime
+                # 转换时间并强制对齐到 UTC
                 pub_date = datetime(*pub_struct[:6], tzinfo=timezone.utc)
-                
-                # 时间判定：确保在过去 24 小时内
-                if pub_date < one_day_ago:
-                    continue
+                if pub_date < one_day_ago: continue
 
                 title = entry.title.strip()
-                if title in seen_titles:
-                    continue
+                if title in seen_titles: continue
                 seen_titles.add(title)
 
-                # 分类逻辑
+                # 分类搜索逻辑
                 title_lower = title.lower()
                 category_found = "🌐 综合资讯"
                 for cat, keywords in CATEGORIES.items():
@@ -122,21 +120,22 @@ def fetch_and_process():
                         category_found = cat
                         break
 
-                # 格式化
-                item = f"{len(grouped_news[category_found]) + 1}. **{title}** ([{source}]({entry.link}))"
+                # 排版优化：使用 Markdown 链接 [标题](链接)，解决长 URL 乱跳问题
+                idx = len(grouped_news[category_found]) + 1
+                item = f"{idx}. **[{source}]** [{title}]({entry.link})"
                 
                 if len(grouped_news[category_found]) < MAX_PER_CATEGORY:
                     grouped_news[category_found].append(item)
                     all_titles_for_ai.append(f"[{category_found}] {title}")
                     count += 1
-
-            logging.info(f"✅ {source}: 成功抓取 {count} 条") # 在 Actions 日志里查看
+            
+            logging.info(f"✅ {source}: 成功解析 {count} 条")
 
         except Exception as e:
-            logging.error(f"❌ {source} 抓取失败: {e}")
+            logging.error(f"❌ {source} 请求失败: {e}")
 
     summary_input = "\n".join(all_titles_for_ai[:25])
-    ai_summary = get_ai_summary(summary_input) if all_titles_for_ai else "今日无重大更新。"
+    ai_summary = get_ai_summary(summary_input) if all_titles_for_ai else "今日暂无更新。"
 
     return ai_summary, grouped_news
 

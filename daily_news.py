@@ -111,7 +111,6 @@ def fetch_and_process():
                         category_found = cat
                         break
 
-                # item = f"• **[{source}]** [{title}]({entry.link})"
                 item = f"{len(grouped_news[category_found]) + 1}. **{title}** ([{source}]({entry.link}))"
 
                 if len(grouped_news[category_found]) < MAX_PER_CATEGORY:

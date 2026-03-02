@@ -11,9 +11,9 @@ RSS_FEEDS = {
     "36氪": "https://36kr.com/feed",
     "IEEE Robotics": "https://spectrum.ieee.org/feeds/topic/robotics.rss",
     "量子位": "https://www.qbitai.com/feed",
-    "机核网": "https://rsshub.app/gcores/category/1",
-    "游民星空": "https://rsshub.app/gamersky/news",
-    "爱范儿": "https://rsshub.app/ifanr/category/entertainment"
+    "机核网": "https://rsshub.js.org/gcores/category/1",
+    "游民星空": "https://rsshub.js.org/gamersky/news",
+    "爱范儿": "https://rsshub.js.org/ifanr/category/entertainment"
 }
 
 CATEGORIES = {

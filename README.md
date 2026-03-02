@@ -1,4 +1,4 @@
-# 🤖 Tech News Daily
+# News Daily
 
 > **基于 GitHub Actions + DeepSeek AI + Server 酱的早报**
 

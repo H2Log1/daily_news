@@ -3,60 +3,94 @@ import requests
 import os
 from datetime import datetime, timedelta, timezone
 
-# 科技资讯 RSS 源列表（可自行添加）
-RSS_FEEDS = [
-    "https://www.ithome.com/rss/",       # IT之家
-    "https://36kr.com/feed",             # 36氪
-    "http://www.ruanyifeng.com/blog/atom.xml"  # 阮一峰的网络日志
-]
+# 配置
+RSS_FEEDS = {
+    "IT之家": "https://www.ithome.com/rss/",
+    "36氪": "https://36kr.com/feed",
+    "IEEE Robotics": "https://spectrum.ieee.org/feeds/topic/robotics.rss",
+    "量子位": "https://www.qbitai.com/feed"
+}
 
-def fetch_tech_news():
-    print("正在抓取科技资讯...")
-    news_list = []
+CATEGORIES = {
+    "🤖 机器人与具身智能": ["机器人", "robot", "embodied", "vla", "智元", "宇树"],
+    "🧠 AI 与大模型": ["ai", "模型", "gpt", "llm", "深度学习", "训练"],
+    "🛠️ 编程与嵌入式": ["python", "stm32", "ros", "git", "linux", "matlab"],
+}
+
+def get_ai_summary(news_text):
+    """调用 DeepSeek API 进行摘要总结"""
+    api_key = os.environ.get("DEEPSEEK_API_KEY")
+    if not api_key:
+        return "⚠️ 未配置 AI API Key，跳过总结。"
+
+    url = "https://api.deepseek.com/chat/completions"
+    headers = {
+        "Content-Type": "application/json",
+        "Authorization": f"Bearer {api_key}"
+    }
+    
+    # 构建 Prompt，引导 AI 关注你的专业领域
+    prompt = f"请根据以下科技新闻标题，用 3 句话总结今日最重要的技术趋势。重点关注机器人、具身智能和 AI 模型进展：\n\n{news_text}"
+    
+    payload = {
+        "model": "deepseek-chat",
+        "messages": [
+            {"role": "system", "content": "你是一个资深的科技分析师，擅长从繁杂信息中提取核心价值。"},
+            {"role": "user", "content": prompt}
+        ],
+        "stream": False
+    }
+
+    try:
+        response = requests.post(url, json=payload, headers=headers, timeout=30)
+        return response.json()['choices'][0]['message']['content']
+    except Exception as e:
+        return f"AI 总结失败: {str(e)}"
+
+def fetch_and_process():
+    grouped_news = {cat: [] for cat in CATEGORIES.keys()}
+    grouped_news["🌐 综合科技"] = []
+    all_titles = []
+    
     now = datetime.now(timezone.utc)
     one_day_ago = now - timedelta(days=1)
 
-    for url in RSS_FEEDS:
-        try:
-            feed = feedparser.parse(url)
-            for entry in feed.entries:
-                # 解析发布时间并转换为 UTC
-                # 部分 RSS 的日期格式可能略有不同，这里做简单处理
-                pub_date = None
-                if hasattr(entry, 'published_parsed'):
-                    pub_date = datetime(*entry.published_parsed[:6], tzinfo=timezone.utc)
+    for source, url in RSS_FEEDS.items():
+        feed = feedparser.parse(url)
+        for entry in feed.entries:
+            pub_date = datetime(*entry.published_parsed[:6], tzinfo=timezone.utc) if hasattr(entry, 'published_parsed') else None
+            if pub_date and pub_date > one_day_ago:
+                # 分类
+                found_cat = "🌐 综合科技"
+                for cat, keywords in CATEGORIES.items():
+                    if any(k in entry.title.lower() for k in keywords):
+                        found_cat = cat
+                        break
                 
-                if pub_date and pub_date > one_day_ago:
-                    item = f"【{feed.feed.title}】{entry.title}\n链接：{entry.link}"
-                    news_list.append(item)
-        except Exception as e:
-            print(f"解析 {url} 出错: {e}")
+                item = f"• {entry.title} ({source})\n  🔗 {entry.link}"
+                grouped_news[found_cat].append(item)
+                all_titles.append(entry.title)
 
-    return news_list
-
-def send_to_wechat(content_list):
-    sendkey = os.environ.get("SC_SENDKEY")
-    if not sendkey:
-        print("错误：未找到 SC_SENDKEY 环境变量")
-        return
-
-    if not content_list:
-        content = "过去 24 小时内未发现新的科技资讯。"
-    else:
-        content = "\n\n---\n\n".join(content_list)
-
-    url = f"https://sctapi.ftqq.com/{sendkey}.send"
-    data = {
-        "title": f"今日科技资讯摘要 ({datetime.now().strftime('%m-%d-%Y')})",
-        "desp": content
-    }
+    # 仅对前 15 条重要标题进行总结，避免内容过长
+    summary_input = "\n".join(all_titles[:15])
+    ai_summary = get_ai_summary(summary_input) if all_titles else "今日无新闻。"
     
-    response = requests.post(url, data=data)
-    if response.status_code == 200:
-        print("推送成功！")
-    else:
-        print(f"推送失败：{response.text}")
+    return ai_summary, grouped_news
+
+def send_push(summary, grouped_data):
+    sendkey = os.environ.get("SC_SENDKEY")
+    
+    content_parts = [f"## 🤖 AI 今日精选摘要\n{summary}\n", "---"]
+    for category, news_list in grouped_data.items():
+        if news_list:
+            content_parts.append(f"### {category}\n" + "\n".join(news_list))
+    
+    data = {
+        "title": f"📅 {datetime.now().strftime('%m-%d')} 科技早报",
+        "desp": "\n\n".join(content_parts)
+    }
+    requests.post(f"https://sctapi.ftqq.com/{sendkey}.send", data=data)
 
 if __name__ == "__main__":
-    news = fetch_tech_news()
-    send_to_wechat(news)
+    summary, news = fetch_and_process()
+    send_push(summary, news)
